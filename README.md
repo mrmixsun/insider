@@ -60,15 +60,19 @@
 ## Быстрый старт
 
 ```bash
-# 1. Установи AI Sreda (десктоп-среда)
-# 2. Клонируй репозиторий
+# 1. Клонируй репозиторий
 git clone https://github.com/mrmixsun/insighter.git
-# 3. Открой в AI Sreda: File → Open → путь к insighter
-# 4. Вызови /init — настроишь контекст за 2 минуты
-# 5. Вызови /extract — интервью с первым экспертом
+# 2. Открой в любом AI-клиенте:
+#    Claude Code → cd insighter && claude
+#    VS Code + Claude → File → Open → insighter
+#    Cursor → File → Open → insighter
+#    AI Sreda → File → Open → insighter
+#    ChatGPT → загрузи проект как knowledge (experimental)
+# 3. Вызови /init — настроишь контекст за 2 минуты
+# 4. Вызови /extract — интервью с первым экспертом
 ```
 
-Никаких внешних API, ключей, подписок, docker-образов. Всё работает внутри AI Sreda.
+Никаких внешних API, ключей, подписок, docker-образов. Всё работает внутри AI-клиента — достаточно прочитать SKILL.md.
 
 ## Архитектура
 
@@ -105,8 +109,8 @@ the-insider/
 
 ## Зависимости
 
-- Только AI Sreda (десктоп)
-- Zero external API, zero subscriptions, zero Docker
+- Любой AI-клиент с поддержкой Claude / GPT-4 (Claude Code, Cursor, VS Code+Claude, AI Sreda, ChatGPT Projects)
+- Zero external API, zero subscriptions, zero Docker — всё в SKILL.md
 
 ## Лицензия
 

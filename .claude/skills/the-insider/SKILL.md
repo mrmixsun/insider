@@ -5,7 +5,10 @@
 > Проводит STARRI-интервью с экспертом, маппит историю на аудиторию/формат,
 > генерирует черновики: Telegram-пост, заявку на доклад, кейс.
 >
-> Как использовать: открой проект → вызови /init → /extract → /map → /generate
+> Harness: любой Claude-совместимый AI-клиент (Claude Code, Cursor, VS Code+Claude,
+> ChatGPT Projects, AI Sreda и другие). Запускайте там, где вам удобно.
+>
+> Как использовать: открой проект в AI-клиенте → вызови /init → /extract → /map → /generate
 
 ---
 
@@ -62,7 +65,7 @@ The Insider provides 5 commands.
 
 **What it does:** Single command to get started — configures Business DNA and Content Map through a conversation. Shows the user that the system now knows their context.
 
-**When to call:** **First thing.** Clone the repo → open in AI Sreda → call `/init`. One time only (until reconfiguration is needed).
+**When to call:** **First thing.** Clone the repo → open in your AI client → call `/init`. One time only (until reconfiguration is needed).
 
 **Process:**
 
