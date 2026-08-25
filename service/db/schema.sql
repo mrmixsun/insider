@@ -40,8 +40,14 @@ CREATE TABLE IF NOT EXISTS interviews (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_interviews_user_id ON interviews(user_id);
-CREATE INDEX idx_interviews_status ON interviews(status);
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_interviews_user_id') THEN
+        CREATE INDEX idx_interviews_user_id ON interviews(user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_interviews_status') THEN
+        CREATE INDEX idx_interviews_status ON interviews(status);
+    END IF;
+END $$;
 
 -- ──────────────────────────────────────────────
 -- Artifacts (generated content)
@@ -58,8 +64,14 @@ CREATE TABLE IF NOT EXISTS artifacts (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_artifacts_user_id ON artifacts(user_id);
-CREATE INDEX idx_artifacts_interview_id ON artifacts(interview_id);
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_artifacts_user_id') THEN
+        CREATE INDEX idx_artifacts_user_id ON artifacts(user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_artifacts_interview_id') THEN
+        CREATE INDEX idx_artifacts_interview_id ON artifacts(interview_id);
+    END IF;
+END $$;
 
 -- ──────────────────────────────────────────────
 -- Session State (текущий шаг пользователя в боте)
