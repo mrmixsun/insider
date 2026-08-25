@@ -1,0 +1,54 @@
+# Expert Profile: {{Name}}
+
+## Identity
+
+```yaml
+name: "{{Full Name}}"
+id: "{{name-slug}}"
+role: "{{Current role / title}}"
+department: "{{Department or unit}}"
+since: "{{YYYY}}"            # when joined the company
+```
+
+## Domains
+
+```yaml
+primary: "{{Main domain of expertise}}"
+secondary:
+  - "{{Related domain 1}}"
+  - "{{Related domain 2}}"
+```
+
+## Current Focus
+
+> What the expert is working on RIGHT NOW. Updated each session.
+
+- {{Current initiative 1}}
+- {{Current initiative 2}}
+- {{Current initiative 3}}
+
+## Past Projects (Reference)
+
+> Major projects or initiatives the expert has led or contributed to. Not exhaustive.
+
+- {{Project 1}} — {{year}} — {{brief description}}
+- {{Project 2}} — {{year}} — {{brief description}}
+
+## Known Stories
+
+> Stories already extracted from this expert. Story IDs.
+
+- {{story-id-1}}
+- {{story-id-2}}
+
+## Communication Preferences
+
+```yaml
+style: "{{strategic / technical / visionary / operational}}"
+preferred_medium: "{{conversation / written / async}}"
+time_per_session: {{30}}     # typical session length in minutes
+```
+
+## Notes
+
+{{Any additional context: how they think, what triggers good stories, what to avoid.}}
