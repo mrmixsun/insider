@@ -57,6 +57,28 @@ def _pool_required() -> asyncpg.Pool:
     return _pool
 
 
+def _maybe_json(value):
+    """Casts a JSONB value to Python dict/list if it came back as a string.
+
+    asyncpg returns jsonb columns as raw strings unless a codec is registered.
+    This helper makes the code safe regardless of codec state.
+    """
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return value
+    return value
+
+
+def _decode_row(row: dict, *json_fields: str) -> dict:
+    """Decode specific jsonb fields of a row dict in place."""
+    for field in json_fields:
+        if row.get(field) is not None:
+            row[field] = _maybe_json(row[field])
+    return row
+
+
 # ── Users ──────────────────────────────────────────────
 
 async def upsert_user(
@@ -80,7 +102,7 @@ async def upsert_user(
             """,
             telegram_id, username, first_name, last_name,
         )
-        return dict(row)
+        return _decode_row(dict(row), "business_dna")
 
 
 async def get_user(telegram_id: int) -> dict | None:
@@ -89,7 +111,7 @@ async def get_user(telegram_id: int) -> dict | None:
         row = await conn.fetchrow(
             "SELECT * FROM users WHERE telegram_id = $1", telegram_id
         )
-        return dict(row) if row else None
+        return _decode_row(dict(row), "business_dna") if row else None
 
 
 async def update_business_dna(telegram_id: int, dna: dict) -> None:
@@ -110,7 +132,7 @@ async def create_interview(user_id: int) -> dict:
             "INSERT INTO interviews (user_id) VALUES ($1) RETURNING *",
             user_id,
         )
-        return dict(row)
+        return _decode_row(dict(row), "story", "chat_history")
 
 
 async def get_interview(interview_id: str) -> dict | None:
@@ -119,7 +141,7 @@ async def get_interview(interview_id: str) -> dict | None:
         row = await conn.fetchrow(
             "SELECT * FROM interviews WHERE id = $1", interview_id
         )
-        return dict(row) if row else None
+        return _decode_row(dict(row), "story", "chat_history") if row else None
 
 
 async def get_user_interviews(user_id: int, limit: int = 10) -> list[dict]:
@@ -129,7 +151,7 @@ async def get_user_interviews(user_id: int, limit: int = 10) -> list[dict]:
             "SELECT * FROM interviews WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2",
             user_id, limit,
         )
-        return [dict(r) for r in rows]
+        return [_decode_row(dict(r), "story", "chat_history") for r in rows]
 
 
 async def update_story(interview_id: str, story: dict, chat_history: list | None = None) -> None:
@@ -215,7 +237,7 @@ async def get_session_state(user_id: int) -> dict | None:
         row = await conn.fetchrow(
             "SELECT * FROM session_state WHERE user_id = $1", user_id
         )
-        return dict(row) if row else None
+        return _decode_row(dict(row), "context") if row else None
 
 
 async def clear_session_state(user_id: int) -> None:
