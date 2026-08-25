@@ -1,0 +1,20 @@
+# User data — stories, artifacts, profiles (not tracked in git)
+my_data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Large files (>10MB)
+**/*.mp4
+**/*.wav
+**/*.zip
+**/*.tar.gz
+**/*.log
+
+# Ignore anything that shouldn't be in git
+*.bak
+*.tmp
+*.swp
+*.swo
+*~
