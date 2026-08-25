@@ -3,11 +3,17 @@ Uses asyncpg with a connection pool. All queries go through this module.
 """
 
 import os
+import pathlib
 import json
 import asyncpg
+import logging
 from typing import Optional
 
 _pool: Optional[asyncpg.Pool] = None
+logger = logging.getLogger(__name__)
+
+# Path to schema file
+_SCHEMA_PATH = pathlib.Path(__file__).parent.parent / "db" / "schema.sql"
 
 
 async def init_pool(dsn: str | None = None) -> asyncpg.Pool:
@@ -16,6 +22,15 @@ async def init_pool(dsn: str | None = None) -> asyncpg.Pool:
     dsn = dsn or os.environ["DATABASE_URL"]
     _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=5)
     return _pool
+
+
+async def run_migrations() -> None:
+    """Apply schema.sql to the database. Idempotent — safe to re-run."""
+    pool = _pool_required()
+    sql = _SCHEMA_PATH.read_text()
+    async with pool.acquire() as conn:
+        await conn.execute(sql)
+    logger.info("Database migrations applied successfully")
 
 
 async def close_pool() -> None:

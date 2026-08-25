@@ -1,11 +1,14 @@
 -- The Insider Service — Database Schema
--- Run this in Supabase SQL Editor to initialize tables.
+-- Applied automatically on bot startup (db.run_migrations).
+-- Idempotent — safe to re-run.
 --
 -- Data isolation: each user (by telegram_id) owns their own:
 --   - business_dna (one per user)
 --   - interviews (many)
 --   - artifacts (many, linked to interviews)
 -- No public access — all queries go through the bot backend.
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ──────────────────────────────────────────────
 -- Users

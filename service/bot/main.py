@@ -48,9 +48,10 @@ logger = logging.getLogger(__name__)
 # ── Startup/Shutdown ───────────────────────────────────
 
 async def post_init(application: Application) -> None:
-    """Initialize database pool on startup."""
+    """Initialize database pool and apply schema on startup."""
     await db.init_pool()
-    logger.info("Database pool initialized")
+    await db.run_migrations()
+    logger.info("Database pool initialized and migrations applied")
     logger.info(f"Bot started. Admin IDs: {ADMIN_IDS}")
 
 
