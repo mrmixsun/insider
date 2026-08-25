@@ -10,9 +10,10 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import (
     Application,
-    CommandHandler,
-    MessageHandler,
     CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
     filters,
 )
 
@@ -61,18 +62,14 @@ async def post_shutdown(application: Application) -> None:
 
 # ── Error handler ──────────────────────────────────────
 
-async def error_handler(update: Update | None, context: object) -> None:
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log errors and notify user."""
-    from telegram.error import TelegramError
-    error = getattr(context, 'error', None)
-    if not error and hasattr(context, 'chat_data'):
-        error = context.error if hasattr(context, 'error') else None
-
+    error = context.error
     logger.error("Exception while handling an update: %s", error, exc_info=True)
 
     if update and update.effective_message:
         await update.effective_message.reply_text(
-            "Произошла ошибка. Попробуйте ещё раз или вызовите /cancel."
+            f"Произошла ошибка: {error}\n\nПопробуйте ещё раз или вызовите /cancel."
         )
 
 
