@@ -16,11 +16,21 @@ logger = logging.getLogger(__name__)
 _SCHEMA_PATH = pathlib.Path(__file__).parent.parent / "db" / "schema.sql"
 
 
+async def _init_connection(conn: asyncpg.Connection) -> None:
+    """Register JSONB codec so all jsonb columns return as Python dicts/lists."""
+    await conn.set_type_codec(
+        "jsonb",
+        encoder=json.dumps,
+        decoder=json.loads,
+        schema="pg_catalog",
+    )
+
+
 async def init_pool(dsn: str | None = None) -> asyncpg.Pool:
     """Initialize the connection pool. Call once at startup."""
     global _pool
     dsn = dsn or os.environ["DATABASE_URL"]
-    _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=5)
+    _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=5, init=_init_connection)
     return _pool
 
 
