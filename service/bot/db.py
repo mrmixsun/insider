@@ -1,0 +1,202 @@
+"""Database layer for The Insider Service.
+Uses asyncpg with a connection pool. All queries go through this module.
+"""
+
+import os
+import json
+import asyncpg
+from typing import Optional
+
+_pool: Optional[asyncpg.Pool] = None
+
+
+async def init_pool(dsn: str | None = None) -> asyncpg.Pool:
+    """Initialize the connection pool. Call once at startup."""
+    global _pool
+    dsn = dsn or os.environ["DATABASE_URL"]
+    _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=5)
+    return _pool
+
+
+async def close_pool() -> None:
+    """Close the connection pool. Call at shutdown."""
+    global _pool
+    if _pool:
+        await _pool.close()
+        _pool = None
+
+
+def _pool_required() -> asyncpg.Pool:
+    if _pool is None:
+        raise RuntimeError("Database pool not initialized. Call init_pool() first.")
+    return _pool
+
+
+# ── Users ──────────────────────────────────────────────
+
+async def upsert_user(
+    telegram_id: int,
+    username: str | None,
+    first_name: str | None,
+    last_name: str | None,
+) -> dict:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO users (telegram_id, username, first_name, last_name)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (telegram_id)
+            DO UPDATE SET username = COALESCE($2, users.username),
+                           first_name = COALESCE($3, users.first_name),
+                           last_name = COALESCE($4, users.last_name),
+                           updated_at = NOW()
+            RETURNING *
+            """,
+            telegram_id, username, first_name, last_name,
+        )
+        return dict(row)
+
+
+async def get_user(telegram_id: int) -> dict | None:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM users WHERE telegram_id = $1", telegram_id
+        )
+        return dict(row) if row else None
+
+
+async def update_business_dna(telegram_id: int, dna: dict) -> None:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE users SET business_dna = $1::jsonb, updated_at = NOW() WHERE telegram_id = $2",
+            json.dumps(dna), telegram_id,
+        )
+
+
+# ── Interviews ─────────────────────────────────────────
+
+async def create_interview(user_id: int) -> dict:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "INSERT INTO interviews (user_id) VALUES ($1) RETURNING *",
+            user_id,
+        )
+        return dict(row)
+
+
+async def get_interview(interview_id: str) -> dict | None:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM interviews WHERE id = $1", interview_id
+        )
+        return dict(row) if row else None
+
+
+async def get_user_interviews(user_id: int, limit: int = 10) -> list[dict]:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM interviews WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2",
+            user_id, limit,
+        )
+        return [dict(r) for r in rows]
+
+
+async def update_story(interview_id: str, story: dict, chat_history: list | None = None) -> None:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE interviews SET story = $1::jsonb, status = 'draft', chat_history = $2::jsonb, updated_at = NOW() WHERE id = $3",
+            json.dumps(story), json.dumps(chat_history) if chat_history else None, interview_id,
+        )
+
+
+async def update_interview_status(interview_id: str, status: str) -> None:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE interviews SET status = $1, updated_at = NOW() WHERE id = $2",
+            status, interview_id,
+        )
+
+
+async def update_interview_expert(interview_id: str, expert_name: str, expert_role: str, expert_domain: str) -> None:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE interviews SET expert_name = $1, expert_role = $2, expert_domain = $3, updated_at = NOW() WHERE id = $4",
+            expert_name, expert_role, expert_domain, interview_id,
+        )
+
+
+# ── Artifacts ──────────────────────────────────────────
+
+async def create_artifact(
+    interview_id: str,
+    user_id: int,
+    audience_id: str,
+    format_id: str,
+    angle_id: str,
+    content: str,
+) -> dict:
+    pool = _pool_required()
+    preview = content[:200]
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO artifacts (interview_id, user_id, audience_id, format_id, angle_id, content, preview)
+            VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
+            """,
+            interview_id, user_id, audience_id, format_id, angle_id, content, preview,
+        )
+        return dict(row)
+
+
+async def get_user_artifacts(user_id: int, limit: int = 10) -> list[dict]:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM artifacts WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2",
+            user_id, limit,
+        )
+        return [dict(r) for r in rows]
+
+
+# ── Session State ──────────────────────────────────────
+
+async def set_session_state(user_id: int, command: str, interview_id: str | None = None, context: dict | None = None) -> None:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO session_state (user_id, current_command, interview_id, context, updated_at)
+            VALUES ($1, $2, $3, $4::jsonb, NOW())
+            ON CONFLICT (user_id)
+            DO UPDATE SET current_command = $2, interview_id = COALESCE($3, session_state.interview_id),
+                           context = $4::jsonb, updated_at = NOW()
+            """,
+            user_id, command, interview_id, json.dumps(context) if context else None,
+        )
+
+
+async def get_session_state(user_id: int) -> dict | None:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM session_state WHERE user_id = $1", user_id
+        )
+        return dict(row) if row else None
+
+
+async def clear_session_state(user_id: int) -> None:
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE session_state SET current_command = 'idle', context = NULL, updated_at = NOW() WHERE user_id = $1",
+            user_id,
+        )

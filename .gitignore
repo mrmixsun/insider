@@ -1,6 +1,11 @@
 # User data — stories, artifacts, profiles (not tracked in git)
 my_data/
 
+# Service — secrets and Python cache
+service/.env
+__pycache__/
+*.pyc
+
 # OS files
 .DS_Store
 Thumbs.db
