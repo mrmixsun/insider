@@ -1,4 +1,4 @@
-"""Handlers for The Insider Telegram bot."""
+"""Handlers for Инсайдер Telegram bot."""
 
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -14,7 +14,7 @@ def _format_dna_summary(dna: dict) -> str:
     """Format business DNA as a nice summary box."""
     lines = []
     lines.append("╔═══════════════════════════════════════════════╗")
-    lines.append("║  The Insider — Config Loaded                 ║")
+    lines.append("║  Инсайдер — Config Loaded                ║")
     lines.append("╠═══════════════════════════════════════════════╣")
     lines.append(f"║  Компания:  {dna.get('name', '—')}                ║")
     domains = dna.get("domains", [])
@@ -41,7 +41,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     text = (
         f"Привет, {user.first_name}!\n\n"
-        "Я — The Insider. Диалоговый агент для вытягивания экспертизы "
+        "Я — Инсайдер. Диалоговый агент для вытягивания экспертизы "
         "и упаковки в контент.\n\n"
         "Доступные команды:\n\n"
         "/init — Настроить контекст компании (Business DNA)\n"

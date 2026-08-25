@@ -1,4 +1,4 @@
-"""The Insider Service — Telegram Bot Entry Point.
+"""Инсайдер — Telegram Bot Entry Point.
 
 Run: python -m bot.main
 """

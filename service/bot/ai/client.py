@@ -1,4 +1,4 @@
-"""AI client for The Insider Service.
+"""AI client for Инсайдер Service.
 Wraps OpenAI-compatible API (polza.ai) with model-agnostic interface.
 """
 

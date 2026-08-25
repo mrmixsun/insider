@@ -1,4 +1,4 @@
-"""Database layer for The Insider Service.
+"""Database layer for Инсайдер Service.
 Uses asyncpg with a connection pool. All queries go through this module.
 """
 

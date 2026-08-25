@@ -1,4 +1,4 @@
-# The Insider
+# Инсайдер
 
 > **Диалоговый агент для «вытягивания» экспертизы и упаковки в контент.**
 
@@ -16,7 +16,7 @@
 - Никто не знает, какую историю куда применить (доклад? пост? кейс?)
 - Результат: контент-план пустой, а экспертиза есть
 
-**The Insider решает это:** проводит структурированное интервью (STARRI), маппит историю на аудитории и форматы, и генерирует черновик контента.
+**Инсайдер решает это:** проводит структурированное интервью (STARRI), маппит историю на аудитории и форматы, и генерирует черновик контента.
 
 ## Для кого
 
@@ -54,19 +54,19 @@
 ## Когда НЕ использовать
 
 - ❌ Для автоматического контент-маркетинга без человеческого интервью
-- ❌ Для генерации контента «из воздуха» — **Insight всегда от эксперта, не от AI**
+- ❌ Для генерации контента «из воздуха» — **Инсайт всегда от эксперта, не от AI**
 - ❌ Когда эксперту нужно просто «рассказать, а вы запишете» — используйте диктофон, тут глубже
 
 ## Быстрый старт
 
 ```bash
 # 1. Клонируй репозиторий
-git clone https://github.com/mrmixsun/insighter.git
+git clone https://github.com/mrmixsun/insider.git
 # 2. Открой в любом AI-клиенте:
-#    Claude Code → cd insighter && claude
-#    VS Code + Claude → File → Open → insighter
-#    Cursor → File → Open → insighter
-#    AI Sreda → File → Open → insighter
+#    Claude Code → cd insider && claude
+#    VS Code + Claude → File → Open → insider
+#    Cursor → File → Open → insider
+#    AI Sreda → File → Open → insider
 #    ChatGPT → загрузи проект как knowledge (experimental)
 # 3. Вызови /init — настроишь контекст за 2 минуты
 # 4. Вызови /extract — интервью с первым экспертом
@@ -76,7 +76,7 @@ git clone https://github.com/mrmixsun/insighter.git
 
 ## Архитектура
 
-The Insider оперирует 4 слоями данных:
+Инсайдер оперирует 4 слоями данных:
 
 ```
 Layer 0: Business DNA     → кто вы, домены, продукты, стратегия
@@ -105,7 +105,36 @@ the-insider/
 └── README.md
 ```
 
-Фреймворк: [STARRI](https://github.com/mrmixsun/insighter) — адаптация [STARR от katilevina](https://github.com/katilevina/starry) с добавлением Relevance и Insight для контент-задач.
+Фреймворк: [STARRI](https://github.com/mrmixsun/insider) — адаптация [STARR от katilevina](https://github.com/katilevina/starry) с добавлением Relevance и Insight для контент-задач.
+
+## Telegram Bot
+
+Инсайдер доступен как Telegram-бот — развёрнут на Railway, база данных на Supabase.
+
+**Ссылка:** https://t.me/the_insider_bot
+
+Попробовать можно сразу, без клонирования репозитория. Команды те же: `/init` → `/extract` → `/map` → `/generate`.
+
+Под капотом:
+- **Python + python-telegram-bot v20** — асинхронный фреймворк
+- **asyncpg + Supabase Pooler** — PostgreSQL, IPv4-совместимый коннект
+- **polza.ai (DeepSeek V4 Flash)** — AI-провайдер
+- **Railway** — деплой
+
+```
+service/
+├── bot/
+│   ├── main.py          — точка входа, диспатчер
+│   ├── handlers.py      — все Telegram-хендлеры
+│   ├── ai/
+│   │   └── client.py    — AI-клиент + state machine
+│   └── db.py            — asyncpg прослойка
+├── db/
+│   └── schema.sql       — идемпотентная миграция
+├── Dockerfile
+├── requirements.txt
+└── railway.json
+```
 
 ## Зависимости
 

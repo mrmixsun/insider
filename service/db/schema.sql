@@ -1,4 +1,4 @@
--- The Insider Service — Database Schema
+-- Инсайдер — Database Schema
 -- Applied automatically on bot startup (db.run_migrations).
 -- Idempotent — safe to re-run.
 --
