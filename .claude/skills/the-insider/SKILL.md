@@ -1,10 +1,11 @@
 # The Insider
 
-> Version: 0.1.0
-> Author: Your name here
+> Version: 0.2.0
 > Description: Диалоговый агент для вытягивания экспертизы и упаковки в контент.
 > Проводит STARRI-интервью с экспертом, маппит историю на аудиторию/формат,
 > генерирует черновики: Telegram-пост, заявку на доклад, кейс.
+>
+> Как использовать: открой проект → вызови /init → /extract → /map → /generate
 
 ---
 
@@ -12,10 +13,12 @@
 
 ```
 ┌──────────┐   ┌──────────┐   ┌────────┐   ┌──────────────┐
-│ /setup   │ → │ /extract │ → │ /map   │ → │ /generate    │
+│ /init    │ → │ /extract │ → │ /map   │ → │ /generate    │
 │ 1 раз    │   │          │   │        │   │              │
 └──────────┘   └──────────┘   └────────┘   └──────────────┘
 ```
+
+`/setup` — то же, что `/init`, но для повторной настройки (переконфигурация).
 
 ---
 
@@ -51,22 +54,53 @@ the-insider/
 
 ## Commands
 
-The Insider provides 4 main commands (slash commands) plus 1 optional utility.
+The Insider provides 5 commands.
 
 ---
 
-### `/setup` — Configure Business DNA
+### `/init` — First-Run Wizard (Entry Point)
 
-**What it does:** Creates or updates `business/dna.yaml` and `business/content_map.yaml`.
+**What it does:** Single command to get started — configures Business DNA and Content Map through a conversation. Shows the user that the system now knows their context.
 
-**When to call:** Once when starting The Insider for a new organization. Or any time the org context changes.
+**When to call:** **First thing.** Clone the repo → open in AI Sreda → call `/init`. One time only (until reconfiguration is needed).
 
-**If dna.yaml already exists:**
-1. Read current config
-2. Show summary to the user with status: "Текущий профиль: GEMS / IT-продукт, 55 регионов"
-3. Ask: "Обновляем? Какие изменения?"
+**Process:**
 
-**If dna.yaml does not exist:**
+#### Step 1: Detect state
+
+```
+If business/dna.yaml exists:
+  → "Контекст уже настроен. Загружаю текущую конфигурацию:"
+  → Show context summary (see Step 2 format)
+  → "Данные актуальны? Если нет — скажи, что правим."
+  → If user confirms → "Отлично, всё готово. Вызови /extract для интервью."
+  → If user wants changes → update and save.
+
+If business/dna.yaml does NOT exist:
+  → "Похоже, мы здесь впервые. Давай настроим контекст."
+  → Proceed to conversational setup (below)
+```
+
+#### Step 2: Show context summary (after config exists)
+
+Show this to the user so they SEE what is loaded:
+
+```
+╔══════════════════════════════════════════════════════╗
+║  The Insider — Config Loaded                         ║
+╠══════════════════════════════════════════════════════╣
+║  Компания:  {name} — {description}                  ║
+║  Домены:    {domains list}                          ║
+║  Продукты:  {products list}                         ║
+║  Приоритеты:{strategic priorities list}             ║
+║  Аудитории: {audiences list}                        ║
+║  Форматы:   {formats list}                          ║
+╚══════════════════════════════════════════════════════╝
+```
+
+Then confirm: "Это актуально? Если нет — скажи, что поправить. Если всё ок — вызывай /extract."
+
+#### Step 3: Conversational setup (first time)
 
 Collect through dialog (NOT a form — conversational):
 
@@ -96,6 +130,21 @@ Collect through dialog (NOT a form — conversational):
 
 Write to `business/dna.yaml` and `business/content_map.yaml`.
 
+#### Step 4: Show loaded context (first time too)
+
+After writing configs, show the context summary (Step 2 format) with:
+```
+"Готово. Контекст записан. Теперь я знаю о вас вот что:
+  [summary]
+  Вызови /extract, чтобы провести первое интервью."
+```
+
+---
+
+### `/setup` — Reconfigure Business DNA
+
+**What it does:** Same as `/init` but skips the "first run" introduction. Loads current config → shows summary → asks what to change. Use when org context evolves.
+
 ---
 
 ### `/extract` — Conduct STARRI Interview
@@ -106,9 +155,36 @@ Write to `business/dna.yaml` and `business/content_map.yaml`.
 
 **Process:**
 
-#### Step 0: Check prerequisites
-- Verify `business/dna.yaml` and `business/content_map.yaml` exist. If not, run `/setup` first.
-- Load Business DNA, Content Map, and Interview Protocol.
+#### Step 0: Load and show context (Context Briefing)
+
+**IMPORTANT: Before asking any questions, show the user that the system has context.**
+
+```
+1. Verify business/dna.yaml and business/content_map.yaml exist.
+   If not: "Контекст не настроен. Сначала вызови /init."
+   Stop.
+
+2. Load Business DNA + Content Map + Interview Protocol.
+
+3. Show context briefing to user:
+
+   ╔═══════════════════════════════════════════════╗
+   ║  The Insider — Context Loaded                 ║
+   ╠═══════════════════════════════════════════════╣
+   ║  Компания:    {name}                          ║
+   ║  Домены:      {domain count}                  ║
+   ║  Продукты:    {product count}                 ║
+   ║  Приоритеты:  {priority count}                ║
+   ║  Аудитории:   {audience list}                 ║
+   ║  Форматы:     {format list}                   ║
+   ╚═══════════════════════════════════════════════╝
+
+4. "Контекст загружен. Далее я проведу интервью и на основе этих данных
+   смапплю историю на аудитории и форматы. Начнём?"
+   → User confirms → proceed
+   → User says "контекст устарел" → "Давай обновим. Что изменилось?
+     (можно вызвать /setup, если изменений много)"
+```
 
 #### Step 1: Identify or create expert profile
 ```

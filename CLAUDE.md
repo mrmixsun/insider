@@ -33,10 +33,11 @@ the-insider/
 
 ## Skills
 
-- `the-insider` — The Insider skill with commands: /setup, /extract, /map, /generate
+- `the-insider` — The Insider skill with commands: /init, /setup, /extract, /map, /generate
 
 ## Rules
 
 1. `my_data/` tracked by .gitignore — не коммитится
 2. Templates, SKILL.md, references, config — коммитятся
-3. Перед запуском любой команды — проверь, что `business/dna.yaml` существует
+3. Перед запуском /extract — проверь, что `business/dna.yaml` существует
+4. Если dna.yaml нет — предложи вызвать /init

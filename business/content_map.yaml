@@ -1,0 +1,268 @@
+# Content Map
+# ===========
+# Defines audiences and formats for mapping stories to content artifacts.
+# Configure once via /setup. This is Layer 3 — the bridge between stories and content.
+#
+# This file ships as a reference example. Replace with your org's data.
+
+# ──────────────────────────────────────
+# AUDIENCES
+# Each audience has:
+#   - story_fit_rules: conditions that make a story interesting to this audience
+#   - framing: how to position the story for this audience
+#   - anti_patterns: what NOT to do for this audience
+# ──────────────────────────────────────
+audiences:
+
+  - id: "b2g"
+    name: "Госсектор"
+    description: "Региональные и муниципальные органы власти, профильные министерства"
+    segments:
+      - "Региональные руководители цифровой трансформации"
+      - "Министерство строительства (Минстрой)"
+      - "Муниципальные администрации"
+      - "Отраслевые комитеты (НОТИМ)"
+
+    story_fit_rules:
+      - condition: "stakeholders includes 'госорган' or 'Mинстрой' or 'регион'"
+        weight: 10
+        note: "Прямой гос-контекст"
+      - condition: "metrics type includes 'сроки' or 'регионы'"
+        weight: 8
+        note: "Масштабируемость и эффективность"
+      - condition: "domain is 'imt-concept' or 'digital-transformation'"
+        weight: 7
+        note: "Стратегическая повестка"
+      - condition: "insight is about 'people' or 'process' (not technology)"
+        weight: 5
+        note: "Управленческий инсайт"
+      - condition: "result scale >= 50 regions or >= 1M services"
+        weight: 6
+        note: "Федеральный масштаб"
+
+    language_guide: "Нормативная, регламентная, протокольная. Акцент на системности, масштабируемости, исполнении указов."
+    proof_type: "Примеры других регионов, референс, закон"
+    anti_patterns:
+      - "Сложная технология без привязки к результату"
+      - "IT-сленг"
+      - "Критика существующих процессов без предложений"
+
+    framing_defaults:
+      hook_position: "проблема или результат"
+      tone: "уверенный, доказательный"
+      cta_type: "приглашение к диалогу"
+
+  - id: "b2b"
+    name: "Бизнес / Девелоперы"
+    description: "Строительные компании, девелоперы, проектные организации"
+    segments:
+      - "Крупные девелоперы"
+      - "Проектные организации"
+      - "Кадастровые инженеры"
+
+    story_fit_rules:
+      - condition: "stakeholders includes 'девелопер' or 'стройка' or 'проектная организация'"
+        weight: 10
+        note: "Прямой бизнес-контекст"
+      - condition: "metrics type includes 'деньги' or 'месяцы' or 'скорость'"
+        weight: 9
+        note: "ROI и скорость — ключевые триггеры"
+      - condition: "result metrics have delta > 5x"
+        weight: 7
+        note: "Значимый прирост"
+      - condition: "domain is 'gisogd' or 'public-services'"
+        weight: 5
+        note: "Прикладной домен"
+      - condition: "insight is about 'process' or 'efficiency'"
+        weight: 4
+        note: "Применимо в их работе"
+
+    language_guide: "Бизнес-кейс, ROI, конкретные цифры. Акцент на деньгах и времени."
+    proof_type: "Сколько сэкономили, конкретные цифры, сравнение до/после"
+    anti_patterns:
+      - "Госрегулирование как главный аргумент"
+      - "Общие слова без цифр"
+      - "Слишком сложно для быстрого восприятия"
+
+    framing_defaults:
+      hook_position: "боль или результат"
+      tone: "прагматичный, деловой"
+      cta_type: "попробовать / запросить данные"
+
+  - id: "b2c"
+    name: "Граждане / Профессионалы"
+    description: "Горожане, риелторы, малый бизнес, студенты UrbanTech"
+    segments:
+      - "Риелторы"
+      - "Жители городов"
+      - "Citizen Data Scientists"
+      - "Студенты UrbanTech"
+      - "Малый бизнес (стройка, ремонт)"
+
+    story_fit_rules:
+      - condition: "stakeholders includes 'жители' or 'город' or 'общественность'"
+        weight: 10
+        note: "Прямой публичный контекст"
+      - condition: "insight is 'unexpected' or 'human'"
+        weight: 9
+        note: "Неочевидное — лучший триггер для этой аудитории"
+      - condition: "metrics type includes 'люди' or 'качество' or 'время'"
+        weight: 7
+        note: "Личная выгода или улучшение жизни"
+      - condition: "domain is 'public-services' or 'spatial-data'"
+        weight: 6
+        note: "Прикладные сервисы для людей"
+      - condition: "result visible or checkable by citizen"
+        weight: 5
+        note: "Можно проверить самому"
+
+    language_guide: "Прикладная, понятная, без отраслевого жаргона. Акцент на 'что это меняет в жизни'."
+    proof_type: "Можно проверить самому, визуализация, примеры"
+    anti_patterns:
+      - "Сложная терминология"
+      - "Госповестка как главный аргумент"
+      - "Длинные абзацы"
+
+    framing_defaults:
+      hook_position: "инсайт или проблема"
+      tone: "доверительный, увлекающий"
+      cta_type: "узнать больше / поделиться"
+
+# ──────────────────────────────────────
+# FORMATS
+# Each format has:
+#   - structure: required sections in order
+#   - best_for: when this format is the right choice
+#   - constraints: word limits, required elements
+# ──────────────────────────────────────
+formats:
+
+  - id: "telegram_post"
+    name: "Telegram-пост"
+    description: "Короткий пост для Telegram-канала. Быстрый формат для регулярного контента."
+    max_words: 500
+
+    required_elements:
+      - "Заголовок (hook — what makes someone stop scrolling)"
+      - "Тело поста (контекст → суть → результат → инсайт)"
+      - "CTA (что делать после прочтения)"
+      - "Хэштеги (3-5)"
+
+    structure:
+      - "Заголовок (hook)"
+      - "Контекст (1-2 абзаца)"
+      - "Суть (1-2 абзаца)"
+      - "Результат / инсайт (1 абзац)"
+      - "CTA"
+      - "Хэштеги"
+
+    best_for:
+      audiences: ["b2g", "b2b"]
+      story_attributes:
+        - "Есть чёткие цифры (delta > 2x)"
+        - "Есть простая метафора для объяснения"
+        - "Есть неожиданный инсайт"
+        - "История укладывается в одно сообщение"
+
+    writing_guide:
+      paragraphs: "Короткие (2-3 предложения)"
+      numbers: "Выделять жирным или эмодзи"
+      tone: "Разговорный, экспертный"
+      antipatterns: "Канцелярит, вода, общие фразы"
+
+  - id: "talk_proposal"
+    name: "Заявка на доклад"
+    description: "Предложение выступления на конференцию или отраслевое мероприятие."
+    max_words: 300
+
+    required_elements:
+      - "Название конференции"
+      - "Формат и длительность"
+      - "Тема доклада"
+      - "Ключевые тезисы (3-5)"
+      - "Для какой аудитории"
+      - "Что узнает слушатель"
+
+    structure:
+      - "Конференция / событие"
+      - "Формат (длительность, формат, язык)"
+      - "Название доклада"
+      - "Ключевые тезисы (3-5)"
+      - "Структура доклада"
+      - "Целевая аудитория"
+      - "О спикере"
+
+    best_for:
+      audiences: ["b2g", "b2b"]
+      story_attributes:
+        - "Полная нарративная дуга (проблема → решение → результат)"
+        - "Есть демо-потенциал"
+        - "Стратегический или неожиданный инсайт"
+        - "Масштаб: региональный или федеральный"
+
+    writing_guide:
+      tone: "Уверенный, без хайпа"
+      structure: "Чёткая, по секциям"
+      antipatterns: "Слишком технический / слишком общий"
+
+  - id: "case_study"
+    name: "Кейс"
+    description: "Полноценный разбор проекта: проблема, решение, результат, уроки."
+    max_words: 1500
+
+    required_elements:
+      - "Executive summary"
+      - "Проблема (контекст и симптомы)"
+      - "Решение (подход и ключевые решения)"
+      - "Результаты (метрики до/после)"
+      - "Уроки"
+
+    structure:
+      - "Executive summary (3-5 предложений)"
+      - "Проблема (контекст, симптомы, root cause)"
+      - "Решение (подход, ключевые решения, инструменты)"
+      - "Результаты (таблица метрик, масштаб)"
+      - "Уроки (что пошло хорошо, что иначе, инсайт)"
+      - "О компании (1 предложение)"
+
+    best_for:
+      audiences: ["b2b", "b2g"]
+      story_attributes:
+        - "Есть метрики было-стало"
+        - "Воспроизводимый подход"
+        - "Комплексная история (не укладывается в пост)"
+        - "Подходит для сайта или СМИ"
+
+    writing_guide:
+      tone: "Экспертный, деловой"
+      data: "Все цифры проверены с экспертом"
+      antipatterns: "Без lessons learned не кейс"
+
+# ──────────────────────────────────────
+# ANGLE OPTIONS (narrative positioning)
+# How a story can be framed for different audiences.
+# ──────────────────────────────────────
+angles:
+  - id: "result"
+    name: "Результат / Было-стало"
+    description: "Фокус на измеримом результате. Работает, когда дельта метрик > 2x."
+    best_for: ["b2g", "b2b"]
+    structure: "Проблема → Что сделали → Конкретные цифры → Impact"
+
+  - id: "problem"
+    name: "Проблема / Боль"
+    description: "Фокус на проблеме, которую решали. Работает, когда проблема релевантна аудитории."
+    best_for: ["b2g", "b2c"]
+    structure: "Ситуация (боль) → Почему это было сложно → Как решили → Что изменилось"
+
+  - id: "insight"
+    name: "Инсайт / Вот это поворот"
+    description: "Фокус на неожиданном выводе. Работает, когда insight сильный и relatable."
+    best_for: ["b2c", "b2b"]
+    structure: "Ожидание → Реальность → Почему так → Что это значит для вас"
+
+  - id: "technical"
+    name: "Технический / Как это работает"
+    description: "Фокус на подходе и технологии. Для технической аудитории."
+    best_for: ["b2b-tech", "hackathon"]
+    structure: "Задача → Подход → Ключевые технические решения → Почему это круто"
