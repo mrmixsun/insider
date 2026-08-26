@@ -3,8 +3,8 @@
 import json
 import csv
 import io
+import html
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.helpers import escape_markdown
 from telegram.ext import ContextTypes
 
 from bot import db
@@ -694,25 +694,25 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     stats = await db.get_conversation_stats()
 
     text = (
-        "**Панель администратора**\n\n"
-        "**Статистика переписки:**\n"
+        "<b>Панель администратора</b>\n\n"
+        "<b>Статистика переписки:</b>\n"
         f"Всего сообщений: {stats['total_messages']}\n"
         f"Всего пользователей: {stats['total_users']}\n"
         f"За последние 24ч: {stats['last_24h']}\n\n"
-        f"**Активность пользователей:**\n"
+        f"<b>Активность пользователей:</b>\n"
     )
     for u in stats.get("users", []):
-        name = escape_markdown(u.get("first_name") or u.get("username") or str(u["telegram_id"]))
+        name = html.escape(u.get("first_name") or u.get("username") or str(u["telegram_id"]))
         text += f"• {name} — {u['msg_count']} сообщ., последнее: {u['last_msg'].strftime('%d.%m %H:%M') if u.get('last_msg') else '—'}\n"
 
     text += (
-        "\n**Команды:**\n"
+        "\n<b>Команды:</b>\n"
         "/admin — Показать эту панель\n"
         "/admin download — Скачать все логи переписки (CSV)\n"
-        "/admin download <user_id> — Скачать логи конкретного пользователя (CSV)"
+        "/admin download &lt;user_id&gt; — Скачать логи конкретного пользователя (CSV)"
     )
 
-    await _reply(update, text, parse_mode="Markdown")
+    await _reply(update, text, parse_mode="HTML")
 
 
 async def cmd_admin_download(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
