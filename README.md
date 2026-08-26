@@ -1,6 +1,6 @@
 # Инсайдер
 
-> **Диалоговый агент для «вытягивания» экспертизы и упаковки в контент.**
+> **Диалоговый агент для организации структурированных интервью с экспертами и упаковки их в контент по фреймворку STARRI. Работает как скилл в AI-клиенте и как Telegram-бот.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)]()
