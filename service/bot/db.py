@@ -247,3 +247,68 @@ async def clear_session_state(user_id: int) -> None:
             "UPDATE session_state SET current_command = 'idle', context = NULL, updated_at = NOW() WHERE user_id = $1",
             user_id,
         )
+
+
+# ── Conversation Log ─────────────────────────────
+
+async def log_conversation(
+    user_id: int,
+    role: str,
+    text: str,
+    command: str | None = None,
+) -> None:
+    """Log a single message (user or bot) to conversation_log table."""
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO conversation_log (user_id, role, text, command) VALUES ($1, $2, $3, $4)",
+            user_id, role, text, command,
+        )
+
+
+async def get_conversation_logs(
+    user_id: int | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict]:
+    """Fetch conversation logs, optionally filtered by user. Newest first."""
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        if user_id is not None:
+            rows = await conn.fetch(
+                "SELECT * FROM conversation_log WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+                user_id, limit, offset,
+            )
+        else:
+            rows = await conn.fetch(
+                "SELECT * FROM conversation_log ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+                limit, offset,
+            )
+        return [dict(r) for r in rows]
+
+
+async def get_conversation_stats() -> dict:
+    """Get stats about all conversations."""
+    pool = _pool_required()
+    async with pool.acquire() as conn:
+        total_msgs = await conn.fetchval("SELECT COUNT(*) FROM conversation_log")
+        total_users = await conn.fetchval("SELECT COUNT(DISTINCT user_id) FROM conversation_log")
+        last_24h = await conn.fetchval(
+            "SELECT COUNT(*) FROM conversation_log WHERE created_at > NOW() - INTERVAL '24 hours'"
+        )
+        user_breakdown = await conn.fetch(
+            """
+            SELECT u.telegram_id, u.username, u.first_name,
+                   COUNT(cl.id) AS msg_count, MAX(cl.created_at) AS last_msg
+            FROM conversation_log cl
+            JOIN users u ON u.telegram_id = cl.user_id
+            GROUP BY u.telegram_id
+            ORDER BY last_msg DESC
+            """
+        )
+        return {
+            "total_messages": total_msgs,
+            "total_users": total_users,
+            "last_24h": last_24h,
+            "users": [dict(r) for r in user_breakdown],
+        }

@@ -83,3 +83,24 @@ CREATE TABLE IF NOT EXISTS session_state (
     context JSONB,                -- временные данные текущего шага
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ──────────────────────────────────────────────
+-- Conversation Log (вся переписка пользователей)
+-- ──────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS conversation_log (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('user', 'bot', 'system')),
+    text TEXT NOT NULL,
+    command TEXT,                  -- current_command на момент сообщения
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_conversation_log_user') THEN
+        CREATE INDEX idx_conversation_log_user ON conversation_log(user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_conversation_log_created') THEN
+        CREATE INDEX idx_conversation_log_created ON conversation_log(created_at);
+    END IF;
+END $$;

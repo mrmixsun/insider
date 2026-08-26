@@ -1,6 +1,8 @@
 """Handlers for Инсайдер Telegram bot."""
 
 import json
+import csv
+import io
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
@@ -9,6 +11,32 @@ from bot.ai import client as ai
 
 
 # ── Helpers ────────────────────────────────────────────
+
+async def _reply(
+    update: Update,
+    text: str,
+    parse_mode: str | None = None,
+    reply_markup=None,
+) -> None:
+    """Send a reply and log it to conversation_log."""
+    user_id = update.effective_user.id
+    if update.callback_query:
+        await update.callback_query.message.reply_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+    else:
+        await update.message.reply_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+    # Log the bot's response
+    session = await db.get_session_state(user_id)
+    command = session["current_command"] if session else None
+    await db.log_conversation(user_id, "bot", text, command)
+
+
+async def _edit_and_log(query, text: str) -> None:
+    """Edit a callback query message and log it."""
+    await query.edit_message_text(text)
+    user_id = query.from_user.id
+    session = await db.get_session_state(user_id)
+    command = session["current_command"] if session else None
+    await db.log_conversation(user_id, "bot", text, command)
 
 def _format_dna_summary(dna: dict) -> str:
     """Format business DNA as a nice summary box."""
@@ -39,6 +67,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         last_name=user.last_name,
     )
 
+    # Log start command
+    await db.log_conversation(user.id, "user", "/start", "start")
+
     text = (
         f"Привет, {user.first_name}!\n\n"
         "Я — Инсайдер. Диалоговый агент для вытягивания экспертизы "
@@ -52,15 +83,18 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/cancel — Отменить текущее действие\n\n"
         "С чего начнём? Рекомендую /init — это первый шаг."
     )
-    await update.message.reply_text(text)
+    await _reply(update, text)
 
 
 # ── /cancel ─────────────────────────────────────────────
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Cancel current operation."""
-    await db.clear_session_state(update.effective_user.id)
-    await update.message.reply_text("Текущее действие отменено. Возвращаюсь в исходное состояние.")
+    user_id = update.effective_user.id
+    # Log the cancel command
+    await db.log_conversation(user_id, "user", "/cancel", "cancel")
+    await db.clear_session_state(user_id)
+    await _reply(update, "Текущее действие отменено. Возвращаюсь в исходное состояние.")
 
 
 # ── /init — Business DNA setup ──────────────────────────
@@ -68,13 +102,15 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def cmd_init(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Start or reconfigure business DNA."""
     user_id = update.effective_user.id
+    await db.log_conversation(user_id, "user", "/init", "init")
     user = await db.get_user(user_id)
 
     if user and user.get("business_dna"):
         # Already configured — show summary
         dna = user["business_dna"]
         summary = _format_dna_summary(dna)
-        await update.message.reply_text(
+        await _reply(
+            update,
             f"Контекст уже настроен. Загружаю текущую конфигурацию:\n\n"
             f"```\n{summary}\n```\n"
             "Данные актуальны? Если нет — напиши /setup, чтобы обновить.\n"
@@ -85,7 +121,8 @@ async def cmd_init(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Start init wizard
     await db.set_session_state(user_id, "init_company", context={"init_step": 0, "answers": {}})
-    await update.message.reply_text(
+    await _reply(
+        update,
         "Похоже, мы здесь впервые. Давай настроим контекст.\n\n"
         "Шаг 1/6: **Компания**\n"
         "Какая компания? Название и чем занимается (1-2 предложения).\n\n"
@@ -97,8 +134,10 @@ async def cmd_init(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_setup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Reconfigure DNA — alias for /init but always starts fresh."""
     user_id = update.effective_user.id
+    await db.log_conversation(user_id, "user", "/setup", "setup")
     await db.set_session_state(user_id, "init_company", context={"init_step": 0, "answers": {}})
-    await update.message.reply_text(
+    await _reply(
+        update,
         "Давай обновим контекст.\n\n"
         "Шаг 1/6: **Компания**\n"
         "Какая компания? Название и чем занимается (1-2 предложения).\n\n"
@@ -142,7 +181,8 @@ async def handle_init_step(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await db.clear_session_state(user_id)
 
         summary = _format_dna_summary(dna)
-        await update.message.reply_text(
+        await _reply(
+            update,
             f"Готово! Контекст записан. Теперь я знаю о вас вот что:\n\n"
             f"```\n{summary}\n```\n\n"
             "Вызови /extract, чтобы провести первое интервью.",
@@ -156,7 +196,8 @@ async def handle_init_step(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         f"init_{step_keys[next_step]}",
         context={"init_step": next_step, "answers": answers},
     )
-    await update.message.reply_text(
+    await _reply(
+        update,
         f"{step_questions[next_step]}",
         parse_mode="Markdown",
     )
@@ -182,11 +223,13 @@ def _build_dna_from_answers(answers: dict) -> dict:
 async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Start STARRI interview."""
     user_id = update.effective_user.id
+    await db.log_conversation(user_id, "user", "/extract", "extract")
     user = await db.get_user(user_id)
 
     # Check if DNA is configured
     if not user or not user.get("business_dna"):
-        await update.message.reply_text(
+        await _reply(
+            update,
             "Контекст не настроен. Сначала вызови /init."
         )
         return
@@ -201,7 +244,8 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     dna = user["business_dna"]
     summary = _format_dna_summary(dna)
 
-    await update.message.reply_text(
+    await _reply(
+        update,
         f"Контекст загружен.\n\n"
         f"```\n{summary}\n```\n\n"
         f"Далее я проведу STARRI-интервью. Начнём?",
@@ -227,7 +271,7 @@ async def cmd_extract(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         system_prompt=ai.SYSTEM_PROMPT_BASE + f"\n\nКонтекст компании: {dna.get('name', '—')}",
         temperature=0.7,
     )
-    await update.message.reply_text(response)
+    await _reply(update, response)
 
     # Save chat history
     session = await db.get_session_state(user_id)
@@ -287,7 +331,8 @@ async def handle_extract_message(update: Update, context: ContextTypes.DEFAULT_T
 
         # Summary
         story_title = story.get("situation", "—")[:80]
-        await update.message.reply_text(
+        await _reply(
+            update,
             "Интервью завершено! Вот что собрано:\n\n"
             f"**История:** {story_title}\n\n"
             "Что дальше? Вызови /map, чтобы смапить историю на контент.",
@@ -300,7 +345,7 @@ async def handle_extract_message(update: Update, context: ContextTypes.DEFAULT_T
             system_prompt="Подведи итог интервью. Скажи, что история записана. Предложи вызвать /map для маппинга.",
             temperature=0.5,
         )
-        await update.message.reply_text(response)
+        await _reply(update, response)
         return True
 
     # Move to next step
@@ -329,7 +374,7 @@ async def handle_extract_message(update: Update, context: ContextTypes.DEFAULT_T
         {"story": story, "chat_history": chat_history, "interview_id": interview_id},
     )
 
-    await update.message.reply_text(response)
+    await _reply(update, response)
     return True
 
 
@@ -338,13 +383,15 @@ async def handle_extract_message(update: Update, context: ContextTypes.DEFAULT_T
 async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Map story to audience and format."""
     user_id = update.effective_user.id
+    await db.log_conversation(user_id, "user", "/map", "map")
     interviews = await db.get_user_interviews(user_id, limit=5)
 
     # Filter to interviews with stories
     mapped = [i for i in interviews if i.get("story") and i["status"] == "draft"]
 
     if not mapped:
-        await update.message.reply_text(
+        await _reply(
+            update,
             "Нет историй для маппинга. Сначала проведи интервью — /extract."
         )
         return
@@ -356,7 +403,7 @@ async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_ctx = await db.get_user(user_id)
         dna = user_ctx.get("business_dna") if user_ctx else None
 
-        await update.message.reply_text("Анализирую историю и подбираю варианты...")
+        await _reply(update, "Анализирую историю и подбираю варианты...")
 
         options = await ai.generate_mapping_options(story, dna)
 
@@ -368,7 +415,8 @@ async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             {"story": story, "options": options},
         )
 
-        await update.message.reply_text(
+        await _reply(
+            update,
             f"Для этой истории вижу такие варианты:\n\n{options}\n\n"
             "Какой берём? Напиши номер варианта (1, 2...) или опиши словами.\n"
             "Если хочешь другой вариант — просто скажи."
@@ -382,7 +430,8 @@ async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"map_select_{inv['id']}")])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(
+        await _reply(
+            update,
             "Выбери историю для маппинга:",
             reply_markup=reply_markup,
         )
@@ -401,14 +450,14 @@ async def handle_map_selection(update: Update, context: ContextTypes.DEFAULT_TYP
     interview = await db.get_interview(interview_id)
 
     if not interview or not interview.get("story"):
-        await query.edit_message_text("История не найдена.")
+        await _edit_and_log(query, "История не найдена.")
         return
 
     story = interview["story"]
     user = await db.get_user(update.effective_user.id)
     dna = user.get("business_dna") if user else None
 
-    await query.edit_message_text("Анализирую историю и подбираю варианты...")
+    await _edit_and_log(query, "Анализирую историю и подбираю варианты...")
 
     options = await ai.generate_mapping_options(story, dna)
 
@@ -419,7 +468,8 @@ async def handle_map_selection(update: Update, context: ContextTypes.DEFAULT_TYP
         {"story": story, "options": options},
     )
 
-    await query.message.reply_text(
+    await _reply(
+        update,
         f"Для этой истории вижу такие варианты:\n\n{options}\n\n"
         "Какой берём? Напиши номер варианта (1, 2...) или опиши словами."
     )
@@ -444,7 +494,8 @@ async def handle_map_review(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     ctx["mapping_confirmed"] = True
     await db.set_session_state(user_id, "map_confirmed", interview_id, ctx)
 
-    await update.message.reply_text(
+    await _reply(
+        update,
         f"Принято! Маппинг подтверждён.\n\n"
         f"Теперь вызови /generate, чтобы сгенерировать черновик контента."
     )
@@ -456,12 +507,14 @@ async def handle_map_review(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 async def cmd_generate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Generate content from mapped story."""
     user_id = update.effective_user.id
+    await db.log_conversation(user_id, "user", "/generate", "generate")
     interviews = await db.get_user_interviews(user_id, limit=5)
 
     mapped = [i for i in interviews if i["status"] == "mapped"]
 
     if not mapped:
-        await update.message.reply_text(
+        await _reply(
+            update,
             "Нет смапленных историй. Сначала проведи интервью (/extract) и смапь (/map)."
         )
         return
@@ -472,7 +525,8 @@ async def cmd_generate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         user_ctx = await db.get_user(user_id)
         dna = user_ctx.get("business_dna") if user_ctx else None
 
-        await update.message.reply_text(
+        await _reply(
+            update,
             "Какой формат и угол?\n\n"
             "Напиши, например:\n"
             "— Telegram-пост, результат\n"
@@ -496,7 +550,8 @@ async def cmd_generate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"gen_select_{inv['id']}")])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(
+        await _reply(
+            update,
             "Выбери историю для генерации:",
             reply_markup=reply_markup,
         )
@@ -515,7 +570,7 @@ async def handle_generate_selection(update: Update, context: ContextTypes.DEFAUL
     interview = await db.get_interview(interview_id)
 
     if not interview or not interview.get("story"):
-        await query.edit_message_text("История не найдена.")
+        await _edit_and_log(query, "История не найдена.")
         return
 
     story = interview["story"]
@@ -527,7 +582,7 @@ async def handle_generate_selection(update: Update, context: ContextTypes.DEFAUL
         {"story": story},
     )
 
-    await query.edit_message_text(
+    await _edit_and_log(query,
         "Какой формат и угол?\n\n"
         "Напиши, например:\n"
         "— Telegram-пост, результат\n"
@@ -585,7 +640,7 @@ async def handle_generate_confirm(update: Update, context: ContextTypes.DEFAULT_
             angle_id = val
             break
 
-    await update.message.reply_text("Генерирую черновик...")
+    await _reply(update, "Генерирую черновик...")
 
     user_ctx = await db.get_user(user_id)
     dna = user_ctx.get("business_dna") if user_ctx else None
@@ -605,7 +660,8 @@ async def handle_generate_confirm(update: Update, context: ContextTypes.DEFAULT_
     await db.update_interview_status(interview_id, "generated")
     await db.clear_session_state(user_id)
 
-    await update.message.reply_text(
+    await _reply(
+        update,
         f"Черновик готов:\n\n{content}\n\n"
         "Что правим? Если всё ок — история готова.\n"
         "Хочешь сделать ещё один вариант — вызови /generate снова."
@@ -616,31 +672,97 @@ async def handle_generate_confirm(update: Update, context: ContextTypes.DEFAULT_
 # ── /admin ──────────────────────────────────────────────
 
 async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Admin panel — view users and data."""
+    """Admin panel — view users and data, or download logs."""
     user_id = update.effective_user.id
     user = await db.get_user(user_id)
 
     if not user or not user.get("is_admin"):
-        await update.message.reply_text("Доступ запрещён.")
+        await _reply(update, "Доступ запрещён.")
         return
 
-    # Show stats
-    interviews = await db.get_user_interviews(user_id)
-    artifacts = await db.get_user_artifacts(user_id)
+    # Log admin command
+    cmd_text = update.message.text.strip()
+    await db.log_conversation(user_id, "user", cmd_text, "admin")
+
+    # Handle subcommands
+    args = context.args
+    if args and args[0] == "download":
+        return await cmd_admin_download(update, context)
+
+    # Get conversation stats
+    stats = await db.get_conversation_stats()
 
     text = (
         "**Панель администратора**\n\n"
-        f"Ваши интервью: {len(interviews)}\n"
-        f"Ваши артефакты: {len(artifacts)}\n\n"
+        "**Статистика переписки:**\n"
+        f"Всего сообщений: {stats['total_messages']}\n"
+        f"Всего пользователей: {stats['total_users']}\n"
+        f"За последние 24ч: {stats['last_24h']}\n\n"
+        f"**Активность пользователей:**\n"
     )
-    if interviews:
-        text += "**Последние интервью:**\n"
-        for i in interviews[:5]:
-            status = i["status"]
-            created = i["created_at"].strftime("%d.%m %H:%M") if i.get("created_at") else "—"
-            text += f"• {str(i['id'])[:8]}... | {status} | {created}\n"
+    for u in stats.get("users", []):
+        name = u.get("first_name") or u.get("username") or str(u["telegram_id"])
+        text += f"• {name} — {u['msg_count']} сообщ., последнее: {u['last_msg'].strftime('%d.%m %H:%M') if u.get('last_msg') else '—'}\n"
 
-    await update.message.reply_text(text, parse_mode="Markdown")
+    text += (
+        "\n**Команды:**\n"
+        "/admin — Показать эту панель\n"
+        "/admin download — Скачать все логи переписки (CSV)\n"
+        "/admin download <user_id> — Скачать логи конкретного пользователя (CSV)"
+    )
+
+    await _reply(update, text, parse_mode="Markdown")
+
+
+async def cmd_admin_download(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Download conversation logs as CSV."""
+    user_id = update.effective_user.id
+    user = await db.get_user(user_id)
+
+    if not user or not user.get("is_admin"):
+        await _reply(update, "Доступ запрещён.")
+        return
+
+    # Parse args: /admin download [user_id]
+    # args[0] is "download" when called from cmd_admin, so skip it
+    args = context.args
+    if args and args[0] == "download":
+        args = args[1:]
+    target_user_id = None
+    if args:
+        try:
+            target_user_id = int(args[0])
+        except ValueError:
+            await _reply(update, "Неверный ID пользователя. Используй: /admin download <user_id>")
+            return
+
+    logs = await db.get_conversation_logs(user_id=target_user_id, limit=10000)
+
+    if not logs:
+        await _reply(update, "Нет данных для выгрузки.")
+        return
+
+    # Build CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["id", "user_id", "role", "text", "command", "created_at"])
+    for row in logs:
+        writer.writerow([
+            row["id"],
+            row["user_id"],
+            row["role"],
+            row["text"],
+            row.get("command", ""),
+            row["created_at"].strftime("%Y-%m-%d %H:%M:%S") if row.get("created_at") else "",
+        ])
+
+    csv_bytes = output.getvalue().encode("utf-8-sig")
+    # Send as a file
+    await update.message.reply_document(
+        document=io.BytesIO(csv_bytes),
+        filename=f"conversation_log_{target_user_id or 'all'}.csv",
+        caption=f"Логи переписки ({'все пользователи' if not target_user_id else f'пользователь {target_user_id}'})",
+    )
 
 
 # ── Message router ──────────────────────────────────────
@@ -656,6 +778,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     cmd = session["current_command"]
+
+    # Log user message
+    await db.log_conversation(user_id, "user", update.message.text.strip(), cmd)
 
     # Route to appropriate handler
     if cmd.startswith("init_"):
