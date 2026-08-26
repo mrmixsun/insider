@@ -4,6 +4,7 @@ import json
 import csv
 import io
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.helpers import escape_markdown
 from telegram.ext import ContextTypes
 
 from bot import db
@@ -701,7 +702,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"**Активность пользователей:**\n"
     )
     for u in stats.get("users", []):
-        name = u.get("first_name") or u.get("username") or str(u["telegram_id"])
+        name = escape_markdown(u.get("first_name") or u.get("username") or str(u["telegram_id"]))
         text += f"• {name} — {u['msg_count']} сообщ., последнее: {u['last_msg'].strftime('%d.%m %H:%M') if u.get('last_msg') else '—'}\n"
 
     text += (
