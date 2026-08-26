@@ -40,6 +40,16 @@ async def run_migrations() -> None:
     sql = _SCHEMA_PATH.read_text()
     async with pool.acquire() as conn:
         await conn.execute(sql)
+    # Grant admin status to users listed in ADMIN_TELEGRAM_IDS
+    admin_ids = [int(x.strip()) for x in os.environ.get("ADMIN_TELEGRAM_IDS", "").split(",") if x.strip()]
+    if admin_ids:
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                "UPDATE users SET is_admin = TRUE WHERE telegram_id = ANY($1::bigint[]) AND is_admin = FALSE",
+                admin_ids,
+            )
+            if result != "UPDATE 0":
+                logger.info(f"Admin status granted to users: {admin_ids}")
     logger.info("Database migrations applied successfully")
 
 
@@ -88,19 +98,23 @@ async def upsert_user(
     last_name: str | None,
 ) -> dict:
     pool = _pool_required()
+    # Check if this user is an admin via env variable
+    admin_ids = [int(x.strip()) for x in os.environ.get("ADMIN_TELEGRAM_IDS", "").split(",") if x.strip()]
+    is_admin = telegram_id in admin_ids
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            INSERT INTO users (telegram_id, username, first_name, last_name)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO users (telegram_id, username, first_name, last_name, is_admin)
+            VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (telegram_id)
             DO UPDATE SET username = COALESCE($2, users.username),
                            first_name = COALESCE($3, users.first_name),
                            last_name = COALESCE($4, users.last_name),
+                           is_admin = CASE WHEN $5 THEN TRUE ELSE users.is_admin END,
                            updated_at = NOW()
             RETURNING *
             """,
-            telegram_id, username, first_name, last_name,
+            telegram_id, username, first_name, last_name, is_admin,
         )
         return _decode_row(dict(row), "business_dna")
 
